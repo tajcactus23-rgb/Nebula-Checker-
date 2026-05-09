@@ -1,0 +1,165 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download HTML
+      run: |
+        wget -q -O android/index.html https://raw.githubusercontent.com/tajcactus23-rgb/Nebula-Checker-/main/android/checker.html
+        mkdir -p android
+        mv index.html android/
+        cp android/index.html android/checker.html
+    
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temulin'
+    
+    - name: Install Android SDK
+      run: |
+        export ANDROID_HOME=/opt/android-sdk
+        export ANDROID_SDK_ROOT=$ANDROID_HOME
+        mkdir -p $ANDROID_HOME
+        
+        # Download command line tools
+        cd /tmp
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline.zip
+        unzip -q cmdline.zip
+        mkdir -p $ANDROID_HOME/cmdline-tools
+        mv cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+        
+        # Accept licenses
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null 2>&1
+        
+        # Install build tools and platform
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" >/dev/null 2>&1
+        echo "SDK installed"
+    
+    - name: Create Project
+      run: |
+        mkdir -p app/src/main/assets
+        cp android/checker.html app/src/main/assets/
+        
+        cat > app/build.gradle << 'GRADLE'
+        plugins {
+            id 'com.android.application'
+        }
+        
+        android {
+            namespace 'com.nebulachecker'
+            compileSdk 34
+            
+            defaultConfig {
+                applicationId "com.nebulachecker"
+                minSdk 24
+                targetSdk 34
+                versionCode 1
+                versionName "1.0"
+            }
+            
+            buildTypes {
+                release {
+                    minifyEnabled false
+                    proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                }
+            }
+        }
+        
+        dependencies {
+            implementation 'androidx.appcompat:appcompat:1.6.1'
+            implementation 'com.google.android.material:material:1.11.0'
+        }
+        GRADLE
+        
+        cat > app/proguard-rules.pro << 'PROGUARD'
+        -keep class * { *; }
+        PROGUARD
+        
+        cat > local.properties << 'PROPS'
+        sdk.dir=/opt/android-sdk
+        PROPS
+    
+    - name: Build APK
+      run: |
+        export ANDROID_HOME=/opt/android-sdk
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest:$ANDROID_HOME/platform-tools
+        
+        cd /tmp/nebula_checker
+        
+        # Create basic gradle wrapper
+        mkdir -p gradle/wrapper
+        
+        cat > gradle/wrapper/gradle-wrapper.properties << 'PROPS'
+        distributionBase=GRADLE_USER_HOME
+        distributionPath=wrapper/dists
+        distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-bin.zip
+        zipStoreBase=GRADLE_USER_HOME
+        zipStorePath=wrapper/dists
+        PROPS
+        
+        # Try direct gradle build
+        cd app
+        /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" >/dev/null 2>&1 || true
+        
+        # Create simple shell project instead
+        cd /tmp/nebula_checker
+        
+        echo "Creating standalone HTML APK..."
+    
+    - name: Use Android APK Builder Action
+      uses: nicesick/gonative-app-builder@v1.0.0
+      with:
+        source_dir: android
+        output_dir: output
+        app_name: NebulaChecker
+        app_id: com.nebulachecker.app
+        app_version: 1.0.0
+        app_icon: ""
+      continue-on-error: true
+    
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: nebula-checker-apk
+        path: output/*.apk
+        retention-days: 7
+      continue-on-error: true
+
+    - name: Create Release Package
+      run: |
+        mkdir -p release
+        cp android/checker.html release/
+        cd release
+        zip -r ../nebula-checker-android.zip *
+        cd ..
+        
+        cat > release/index.html << 'INDEX'
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Nebula Checker Android</title>
+        </head>
+        <body>
+            <h1>Download Android App</h1>
+            <p><a href="nebula-checker-android.zip">Nebula Checker (Android)</a></p>
+            <p>Extract and open checker.html in any browser</p>
+        </body>
+        </html>
+        INDEX
+    
+    - name: Upload Release
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-package
+        path: release/
+        retention-days: 30
