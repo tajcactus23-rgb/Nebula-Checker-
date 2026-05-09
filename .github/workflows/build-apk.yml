@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      build_type:
+        type: choice
+        options:
+          - debug
+          - release
+        default: debug
 
 jobs:
   build:
@@ -11,19 +18,78 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+      with:
+        sparse-checkout: |
+          android
+          termux
+        sparse-checkout-cone-mode: false
     
-    - name: Prepare Android files
+    - name: Display structure
+      run: ls -la
+    
+    - name: Prepare files
       run: |
         mkdir -p app/src/main/assets
         cp android/checker.html app/src/main/assets/index.html
-        mkdir -p release
-        cp android/checker.html release/
-        cd release && zip -r ../nebula-checker-android.zip * && cd ..
-        echo "APK build requires local Gradle - see artifact for standalone"
+        cp android/checker.html android/index.html
+        cp termux/checker.html termux/index.html
     
-    - name: Upload Package
+    - name: Create standalone build script
+      run: |
+        cat > build-android.sh << 'SCRIPT'
+        #!/bin/bash
+        # Nebula Checker Android Build Script
+        # Run locally: chmod +x build-android.sh && ./build-android.sh
+        
+        ANDROID_SDK_URL="https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+        GRADLE_URL="https://services.gradle.org/distributions/gradle-8.4-bin.zip"
+        
+        echo "Downloading Android SDK..."
+        curl -sL "$ANDROID_SDK_URL" -o cmdline.zip
+        unzip -q cmdline.zip -d $ANDROID_HOME/cmdline-tools 2>/dev/null || true
+        mv cmdline-tools $ANDROID_HOME/cmdline-tools/latest 2>/dev/null || true
+        
+        echo "Downloading Gradle..."
+        curl -sL "$GRADLE_URL" -o gradle.zip
+        unzip -q gradle.zip
+        
+        echo "Setting up project..."
+        mkdir -p app/src/main/java/com/nebulachecker
+        
+        echo "Build with: ./gradle-8.4/bin/gradle assembleDebug"
+        echo "APK will be at app/build/outputs/apk/debug/app-debug.apk"
+        SCRIPT
+        chmod +x build-android.sh
+    
+    - name: Package all versions
+      run: |
+        # Android package
+        mkdir -p release/android
+        cp android/checker.html release/android/
+        
+        # Termux package  
+        mkdir -p release/termux
+        cp termux/checker.html release/termux/
+        
+        # Build script
+        cp build-android.sh release/
+        
+        cd release
+        zip -r ../nebula-checker-release.zip *
+        cd ..
+        
+        ls -la release/
+    
+    - name: Upload Release
+      uses: actions/upload-artifact@v4
+      with:
+        name: nebula-checker-release
+        path: nebula-checker-release.zip
+        retention-days: 30
+    
+    - name: Upload Android Only
       uses: actions/upload-artifact@v4
       with:
         name: nebula-checker-android
-        path: nebula-checker-android.zip
+        path: android/checker.html
         retention-days: 30
