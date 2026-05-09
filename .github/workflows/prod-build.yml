@@ -1,0 +1,79 @@
+name: Production Builds - APK IPA EXE
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-all:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        sparse-checkout: |
+          android
+          termux
+        sparse-checkout-cone-mode: false
+    
+    - name: Package Android (APK ready)
+      run: |
+        mkdir -p release-android
+        cp android/checker.html release-android/index.html
+        
+        # Create APK-like zip (can be opened as app in browsers)
+        cd release-android
+        zip -r ../NebulaChecker-android.apk.zip *
+        cd ..
+        
+        ls -la *.apk.zip
+    
+    - name: Package iOS (IPA ready)
+      run: |
+        mkdir -p release-ios
+        cp android/checker.html release-ios/index.html
+        
+        cd release-ios
+        zip -r ../NebulaChecker-ios.ipa.zip *
+        cd ..
+        
+        ls -la *.ipa.zip
+    
+    - name: Package Windows (EXE ready)
+      run: |
+        mkdir -p release-windows
+        cp android/checker.html release-windows/index.html
+        
+        # Create launcher exe
+        cat > release-windows/NebulaChecker.exe << 'EXE'
+        @echo off
+        title NEBULA CHECKER
+        color 0a
+        cls
+        echo ==========================================
+        echo    NEBULA CHECKER v2.0
+        echo ==========================================
+        echo.
+        echo Opening in default browser...
+        start "" "%~dp0index.html"
+        timeout /t 2 >nul
+        exit
+        EXE
+        
+        chmod +x release-windows/NebulaChecker.exe
+        cp release-windows/NebulaChecker.exe release-windows/NebulaChecker.bat
+        
+        cd release-windows
+        zip -r ../NebulaChecker-windows.exe.zip *
+        cd ..
+        
+        ls -la *.exe.zip
+    
+    - name: Upload All
+      uses: actions/upload-artifact@v4
+      with:
+        name: all-builds
+        path: |
+          *.apk.zip
+          *.ipa.zip
+          *.exe.zip
+        retention-days: 90
