@@ -12,43 +12,58 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Download HTML
+    - name: Prepare Android files
       run: |
-        wget -q -O android/index.html https://raw.githubusercontent.com/tajcactus23-rgb/Nebula-Checker-/main/android/checker.html
-        mkdir -p android
-        mv index.html android/
-        cp android/index.html android/checker.html
+        mkdir -p app/src/main/assets
+        cp android/checker.html app/src/main/assets/
+        cp android/checker.html app/src/main/index.html
     
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
         java-version: '17'
-        distribution: 'temulin'
+        distribution: 'temurin'
     
     - name: Install Android SDK
       run: |
-        export ANDROID_HOME=/opt/android-sdk
-        export ANDROID_SDK_ROOT=$ANDROID_HOME
-        mkdir -p $ANDROID_HOME
-        
-        # Download command line tools
-        cd /tmp
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline.zip
-        unzip -q cmdline.zip
+        export ANDROID_HOME=$RUNNER_DIR/android-sdk
         mkdir -p $ANDROID_HOME/cmdline-tools
+        cd /tmp
+        curl -sL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o cmdline.zip
+        unzip -q cmdline.zip
         mv cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-        
-        # Accept licenses
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null 2>&1
-        
-        # Install build tools and platform
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null 2>&1 || true
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" >/dev/null 2>&1
-        echo "SDK installed"
+        echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
     
-    - name: Create Project
+    - name: Create Android Project
       run: |
-        mkdir -p app/src/main/assets
-        cp android/checker.html app/src/main/assets/
+        export ANDROID_HOME=$RUNNER_DIR/android-sdk
+        
+        mkdir -p app/src/main/java/com/nebulachecker
+        cat > app/src/main/AndroidManifest.xml << 'MANIFEST'
+        <?xml version="1.0" encoding="utf-8"?>
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+            package="com.nebulachecker">
+            <uses-permission android:name="android.permission.INTERNET"/>
+            <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+            <application
+                android:allowBackup="true"
+                android:label="Nebula Checker"
+                android:supportsRtl="true"
+                android:theme="@android:style/Theme.Material.NoActionBar">
+                <activity
+                    android:name=".MainActivity"
+                    android:exported="true"
+                    android:configChanges="orientation|screenSize|keyboardHidden">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN"/>
+                        <category android:name="android.intent.category.LAUNCHER"/>
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        MANIFEST
         
         cat > app/build.gradle << 'GRADLE'
         plugins {
@@ -58,19 +73,16 @@ jobs:
         android {
             namespace 'com.nebulachecker'
             compileSdk 34
-            
             defaultConfig {
                 applicationId "com.nebulachecker"
-                minSdk 24
+                minSdk 21
                 targetSdk 34
                 versionCode 1
                 versionName "1.0"
             }
-            
             buildTypes {
                 release {
                     minifyEnabled false
-                    proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
                 }
             }
         }
@@ -81,85 +93,100 @@ jobs:
         }
         GRADLE
         
-        cat > app/proguard-rules.pro << 'PROGUARD'
-        -keep class * { *; }
-        PROGUARD
+        # Create source file
+        cat > app/src/main/java/com/nebulachecker/MainActivity.java << 'JAVA'
+        package com.nebulachecker;
+        import android.os.Bundle;
+        import android.webkit.WebView;
+        import android.webkit.WebSettings;
+        import androidx.appcompat.app.AppCompatActivity;
         
-        cat > local.properties << 'PROPS'
-        sdk.dir=/opt/android-sdk
+        public class MainActivity extends AppCompatActivity {
+            @Override
+            protected void onCreate(Bundle savedInstanceState) {
+                super.onCreate(savedInstanceState);
+                WebView webView = new WebView(this);
+                setContentView(webView);
+                WebSettings settings = webView.getSettings();
+                settings.setJavaScriptEnabled(true);
+                settings.setDomStorageEnabled(true);
+                settings.setDatabaseEnabled(true);
+                settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+                webView.loadUrl("file:///android_asset/index.html");
+            }
+        }
+        JAVA
+        
+        cat > local.properties << PROPS
+        sdk.dir=$ANDROID_HOME
         PROPS
-    
-    - name: Build APK
-      run: |
-        export ANDROID_HOME=/opt/android-sdk
-        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest:$ANDROID_HOME/platform-tools
         
-        cd /tmp/nebula_checker
+        cat > gradle.properties << PROPS
+        org.gradle.jvmargs=-Xmx2048m -Xmx2048m
+        android.useAndroidX=true
+        android.enableJetifier=true
+        PROPS
         
-        # Create basic gradle wrapper
         mkdir -p gradle/wrapper
         
-        cat > gradle/wrapper/gradle-wrapper.properties << 'PROPS'
-        distributionBase=GRADLE_USER_HOME
-        distributionPath=wrapper/dists
+        cat > gradle/wrapper/gradle-wrapper.properties << PROPS
         distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-bin.zip
-        zipStoreBase=GRADLE_USER_HOME
-        zipStorePath=wrapper/dists
         PROPS
-        
-        # Try direct gradle build
-        cd app
-        /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" >/dev/null 2>&1 || true
-        
-        # Create simple shell project instead
-        cd /tmp/nebula_checker
-        
-        echo "Creating standalone HTML APK..."
     
-    - name: Use Android APK Builder Action
-      uses: nicesick/gonative-app-builder@v1.0.0
-      with:
-        source_dir: android
-        output_dir: output
-        app_name: NebulaChecker
-        app_id: com.nebulachecker.app
-        app_version: 1.0.0
-        app_icon: ""
-      continue-on-error: true
+    - name: Create Gradle Wrapper
+      run: |
+        cd /tmp
+        curl -sL https://services.gradle.org/distributions/gradle-8.4-bin.zip -o gradle.zip
+        unzip -q gradle.zip
+        /tmp/gradle-8.4/bin/gradle wrapper --gradle-version 8.4 -p /tmp/nebula_checker/app 2>/dev/null || true
+        cp -r /tmp/gradle-8.4/lib/plugins/gradle*.jar app/gradle/wrapper/ 2>/dev/null || true
+    
+    - name: Download Gradle
+      run: |
+        cd /tmp/nebula_checker/app
+        curl -sL https://services.gradle.org/distributions/gradle-8.4-bin.zip -o gradle.zip
+        unzip -q gradle.zip
+        export PATH=$PATH:/tmp/gradle-8.4/bin
+        echo "PATH=$PATH" >> $GITHUB_ENV
+    
+    - name: Build Debug APK
+      run: |
+        export ANDROID_HOME=$RUNNER_DIR/android-sdk
+        
+        cd /tmp/nebula_checker/app
+        
+        # Use gradle wrapper
+        if [ -f "gradlew" ]; then
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon 2>&1 | tail -20
+        else
+          # Direct gradle
+          /tmp/gradle-8.4/bin/gradle assembleDebug --no-daemon 2>&1 | tail -20
+        fi
+        
+        ls -la app/build/outputs/apk/debug/ 2>/dev/null || echo "Checking build..."
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: nebula-checker-apk
-        path: output/*.apk
+        path: app/build/outputs/apk/debug/*.apk
         retention-days: 7
       continue-on-error: true
-
-    - name: Create Release Package
+    
+    - name: Fallback Package
+      if: failure()
       run: |
         mkdir -p release
         cp android/checker.html release/
         cd release
         zip -r ../nebula-checker-android.zip *
         cd ..
-        
-        cat > release/index.html << 'INDEX'
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Nebula Checker Android</title>
-        </head>
-        <body>
-            <h1>Download Android App</h1>
-            <p><a href="nebula-checker-android.zip">Nebula Checker (Android)</a></p>
-            <p>Extract and open checker.html in any browser</p>
-        </body>
-        </html>
-        INDEX
     
-    - name: Upload Release
+    - name: Upload Fallback
+      if: failure()
       uses: actions/upload-artifact@v4
       with:
-        name: release-package
-        path: release/
+        name: nebula-checker-android
+        path: nebula-checker-android.zip
         retention-days: 30
