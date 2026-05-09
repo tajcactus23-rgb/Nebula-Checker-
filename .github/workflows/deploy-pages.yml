@@ -1,21 +1,82 @@
-name: Deploy Files
+name: Deploy to GitHub Pages
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  upload:
+  deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     
     steps:
     - uses: actions/checkout@v4
+      with:
+        sparse-checkout: |
+          android
+          termux
+        sparse-checkout-cone-mode: false
     
-    - name: Package Android
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+    
+    - name: Create Pages site
       run: |
-        mkdir -p _site/android
-        cp android/checker.html _site/android/
+        # Copy all files
+        mkdir -p _site
+        cp -r android _site/
+        cp -r termux _site/
+        
+        # Create index
+        cat > _site/index.html << 'INDEX'
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Nebula Checker</title>
+            <style>
+                body { 
+                    background: #050510; 
+                    color: #00f0ff; 
+                    font-family: 'Courier New', monospace;
+                    padding: 20px;
+                }
+                h1 { text-shadow: 0 0 10px #00f0ff; }
+                a { color: #00f0ff; text-decoration: none; }
+                a:hover { text-shadow: 0 0 20px #00f0ff; }
+                .btn {
+                    display: inline-block;
+                    padding: 15px 30px;
+                    border: 2px solid #00f0ff;
+                    margin: 10px;
+                    cursor: pointer;
+                }
+                .btn:hover {
+                    background: #00f0ff;
+                    color: #000;
+                }
+            </style>
+        </head>
+        <body>
+            <h1>◈ NEBULA CHECKER ◈</h1>
+            <p>Select your platform:</p>
+            <a href="android/checker.html" class="btn">ANDROID</a>
+            <a href="termux/checker.html" class="btn">TERMUX</a>
+            <hr>
+            <p><small>Neural Network Credential Checker v2.0</small></p>
+        </body>
+        </html>
+        INDEX
     
-    - name: Upload
+    - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
       with:
         path: _site
+    
+    - name: Deploy
+      uses: actions/deploy-pages@v4
