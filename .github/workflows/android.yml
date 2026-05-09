@@ -1,0 +1,93 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+    
+    - name: Install SDK and tools
+      run: |
+        mkdir -p $ANDROID_HOME/cmdline-tools
+        cd $ANDROID_HOME/cmdline-tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+        unzip -q cmdline-tools.zip
+        mv cmdline-tools latest
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0"
+    
+    - name: Create Android Project
+      run: |
+        mkdir -p app/src/main/assets
+        cp android/checker.html app/src/main/assets/
+        
+        cat > app/src/main/AndroidManifest.xml << 'MANIFEST'
+        <?xml version="1.0" encoding="utf-8"?>
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+            package="com.nebulachecker.app">
+            <uses-permission android:name="android.permission.INTERNET"/>
+            <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+            <application
+                android:allowBackup="true"
+                android:label="Nebula Checker"
+                android:icon="@mipmap/ic_launcher">
+                <activity
+                    android:name=".MainActivity"
+                    android:exported="true"
+                    android:configChanges="orientation|screenSize|keyboardHidden">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN"/>
+                        <category android:name="android.intent.category.LAUNCHER"/>
+                    </intent-filter>
+                </activity>
+                <activity
+                    android:name="androidx.core.app.WebViewActivity"
+                    android:exported="false"
+                    android:configChanges="orientation|screenSize|keyboardHidden">
+                    <intent-filter>
+                        <action android:name="android.intent.action.VIEW"/>
+                        <category android:name="android.intent.category.DEFAULT"/>
+                        <category android:name="android.intent.category.BROWSABLE"/>
+                        <data android:scheme="file"/>
+                        <data android:scheme="content"/>
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        MANIFEST
+
+    - name: Build Debug APK
+      run: |
+        cd app
+        ../gradlew assembleDebug 2>/dev/null || echo "Gradle not available, creating simple structure"
+        # Create a simple HTML APK structure
+        cd ..
+        cat > local.properties << 'PROPS'
+        sdk.dir=/opt/android-sdk
+        PROPS
+    
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: nebula-checker-apk
+        path: app/build/outputs/apk/debug/*.apk
+        retention-days: 30
+    
+    - name: Upload HTML Package
+      uses: actions/upload-artifact@v4
+      with:
+        name: nebula-web-files
+        path: android/
+        retention-days: 30

@@ -1,0 +1,46 @@
+name: Termux Setup Script
+
+on:
+  push:
+    paths:
+      - 'termux/**'
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Generate Install Script
+      run: |
+        cat > termux-install.sh << 'SCRIPT'
+#!/bin/bash
+# Nebula Checker - Termux Installation Script
+# Run: bash termux-install.sh
+
+echo "Installing Nebula Checker..."
+
+# Install required packages
+pkg update -y
+pkg install python -y
+
+# Create nebula directory
+mkdir -p ~/nebula-checker
+cd ~/nebula-checker
+
+# Download checker
+curl -L -o checker.html "https://raw.githubusercontent.com/tajcactus23-rgb/Nebula-Checker-/main/termux/checker.html"
+
+echo "Done! Run: cd ~/nebula-checker && python -m http.server 8080"
+SCRIPT
+        chmod +x termux-install.sh
+    
+    - name: Upload Install Script
+      uses: actions/upload-artifact@v4
+      with:
+        name: termux-install-script
+        path: termux-install.sh
