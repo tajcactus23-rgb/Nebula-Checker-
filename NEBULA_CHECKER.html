@@ -1579,6 +1579,63 @@
             }
         }
 
+        // ==================== WORKING v1.2 WRAPPER ====================
+        const workingV12 = {
+            parseCombos(rawText) {
+                const parsed = [];
+                rawText.split('\n').forEach(line => {
+                    line = line.trim();
+                    if (!line || !line.includes(':')) return;
+                    const parts = line.split(':');
+                    if (parts.length < 2) return;
+                    const email = parts.shift().trim().toLowerCase();
+                    const password = parts.join(':').trim();
+                    if (email && password) parsed.push({ email, password });
+                });
+                return parsed;
+            },
+            startFromInput() {
+                const text = comboInput.value.trim();
+                if (!text) {
+                    addLog('No combos loaded', 'warn');
+                    return;
+                }
+
+                combos = this.parseCombos(text);
+                if (!combos.length) {
+                    addLog('No valid combos found', 'warn');
+                    return;
+                }
+
+                isRunning = true;
+                currentIndex = 0;
+                checked = 0;
+                hits = 0;
+                activeWorkers = 0;
+
+                startBtn.style.display = 'none';
+                stopBtn.style.display = 'inline-block';
+
+                addLog(`Starting check on ${combos.length} accounts...`, 'info');
+                updateStats();
+
+                const threads = parseInt(threadSlider.value);
+                for (let i = 0; i < threads; i++) {
+                    activeWorkers++;
+                    worker();
+                }
+            },
+            stop() {
+                isRunning = false;
+                addLog('Stopping...', 'warn');
+                startBtn.style.display = 'inline-block';
+                stopBtn.style.display = 'none';
+            }
+        };
+
+        window.nebulaCheckerFrontend = workingV12;
+        window.workingV12 = workingV12;
+
         // ==================== BUTTON HANDLERS ====================
         document.getElementById('paste-btn').addEventListener('click', async () => {
             try {
@@ -1596,55 +1653,11 @@
         });
 
         document.getElementById('start-btn').addEventListener('click', function() {
-            console.log('START CLICKED');
-            const text = comboInput.value.trim();
-            if (!text) {
-                addLog('No combos loaded', 'warn');
-                return;
-            }
-
-            combos = [];
-            text.split('\n').forEach(line => {
-                line = line.trim();
-                if (line && line.includes(':')) {
-                    const parts = line.split(':', 1);
-                    if (parts.length === 2) {
-                        combos.push({ email: parts[0].trim().toLowerCase(), password: parts[1].trim() });
-                    }
-                }
-            });
-
-            if (!combos.length) {
-                addLog('No valid combos found', 'warn');
-                return;
-            }
-
-            isRunning = true;
-            currentIndex = 0;
-            checked = 0;
-            hits = 0;
-            activeWorkers = 0;
-
-            startBtn.style.display = 'none';
-            stopBtn.style.display = 'inline-block';
-
-            addLog(`Starting check on ${combos.length} accounts...`, 'info');
-            updateStats();
-
-            const threads = parseInt(threadSlider.value);
-            console.log('Threads:', threads, 'Combos:', combos.length);
-            
-            for (let i = 0; i < threads; i++) {
-                activeWorkers++;
-                worker();
-            }
+            workingV12.startFromInput();
         });
 
         document.getElementById('stop-btn').addEventListener('click', function() {
-            isRunning = false;
-            addLog('Stopping...', 'warn');
-            startBtn.style.display = 'inline-block';
-            stopBtn.style.display = 'none';
+            workingV12.stop();
         });
     </script>
 </body>
