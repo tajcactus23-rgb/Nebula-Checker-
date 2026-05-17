@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nebula Checker // WorkingV1.2 GUI</title>
+  <style>
+    :root { --bg:#060b16; --card:#0e162a; --line:#1c2b4c; --txt:#d6eeff; --ok:#28d17c; --bad:#ff5f70; --warn:#ffc14d; --accent:#58b6ff; }
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui;background:linear-gradient(180deg,#060b16,#0b1324);color:var(--txt)}
+    .wrap{max-width:1100px;margin:24px auto;padding:0 16px;display:grid;gap:14px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+    h1{margin:0;font-size:20px}.muted{opacity:.8;font-size:13px}
+    textarea,input{width:100%;background:#0a1122;border:1px solid #26395f;color:var(--txt);border-radius:8px;padding:10px}
+    textarea{min-height:180px;resize:vertical}
+    .row{display:grid;grid-template-columns:1fr 1fr 120px;gap:10px}
+    .btns{display:flex;gap:10px;flex-wrap:wrap}.btn{border:0;border-radius:8px;padding:10px 14px;cursor:pointer;font-weight:600}
+    .pri{background:var(--accent);color:#04142b}.danger{background:#3a1420;color:#ffd8dd}.sub{background:#18243f;color:#a8ceff}
+    .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.stat{background:#0b1427;border:1px solid #1b2b4b;border-radius:8px;padding:10px}
+    .label{font-size:12px;opacity:.8}.value{font-size:22px;font-weight:700}
+    .log,.hits{max-height:260px;overflow:auto;font-family:ui-monospace,monospace;font-size:12px;background:#091022;border-radius:8px;padding:10px;border:1px solid #21345c}
+    .hit{padding:6px;border-bottom:1px dashed #1f3154}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>NEBULA CHECKER — WorkingV1.2 Wrapper GUI</h1>
+      <div class="muted">This GUI wraps <code>window.workingV12.check(email, password)</code>. Load your working v1.2 script before this file.</div>
+    </div>
+
+    <div class="card">
+      <label>Combos (email:password)</label>
+      <textarea id="combos" placeholder="user@example.com:password"></textarea>
+      <div class="row" style="margin-top:10px">
+        <input id="threads" type="number" min="1" max="50" value="10" />
+        <input id="keyword" placeholder="Optional keyword filter" />
+        <button id="paste" class="btn sub">Paste</button>
+      </div>
+      <div class="btns" style="margin-top:10px">
+        <button id="start" class="btn pri">Start</button>
+        <button id="stop" class="btn danger">Stop</button>
+        <button id="clear" class="btn sub">Clear</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="label">TOTAL</div><div id="sTotal" class="value">0</div></div>
+      <div class="stat"><div class="label">CHECKED</div><div id="sChecked" class="value">0</div></div>
+      <div class="stat"><div class="label">HITS</div><div id="sHits" class="value">0</div></div>
+      <div class="stat"><div class="label">RATE</div><div id="sRate" class="value">0%</div></div>
+    </div>
+
+    <div class="card"><div class="label">HITS</div><div id="hits" class="hits"></div></div>
+    <div class="card"><div class="label">LOG</div><div id="log" class="log"></div></div>
+  </div>
+
+<script>
+let running=false,current=0,checked=0,hits=0,workers=0,list=[];
+const $=id=>document.getElementById(id);
+const log=(m,t='INFO')=>{const d=document.createElement('div');d.textContent=`[${new Date().toISOString().slice(11,19)}] ${t} ${m}`;$('log').appendChild(d);$('log').scrollTop=$('log').scrollHeight};
+const addHit=(r)=>{const d=document.createElement('div');d.className='hit';d.textContent=`${r.email}:${r.password} | ${r.name||'N/A'} | ${r.country||'N/A'}`;$('hits').prepend(d)};
+const stats=()=>{$('sTotal').textContent=list.length;$('sChecked').textContent=checked;$('sHits').textContent=hits;$('sRate').textContent=checked?((hits/checked)*100).toFixed(1)+'%':'0%'};
+
+function parseCombos(text){return text.split('\n').map(v=>v.trim()).filter(Boolean).map(line=>{const i=line.indexOf(':'); if(i<=0)return null; const email=line.slice(0,i).trim().toLowerCase(); const password=line.slice(i+1).trim(); return (email&&password)?{email,password}:null;}).filter(Boolean)}
+async function runBackend(email,password){
+  if(window.workingV12 && typeof window.workingV12.check==='function') return window.workingV12.check(email,password);
+  throw new Error('workingV12 backend not found. Load the v1.2 script first.');
+}
+
+async function worker(){
+  while(running && current<list.length){
+    const idx=current++; if(idx>=list.length) break;
+    const combo=list[idx], key=$('keyword').value.trim().toLowerCase();
+    if(key && !combo.email.includes(key) && !combo.password.toLowerCase().includes(key)) continue;
+    try{
+      const res=await runBackend(combo.email,combo.password); checked++;
+      if(res && res.valid){ hits++; addHit(res); log(`HIT ${combo.email}`,'HIT'); }
+      else log(`BAD ${combo.email} ${(res&&res.reason)||''}`,'BAD');
+    }catch(e){ checked++; log(`ERR ${combo.email} ${e.message}`,'ERR'); }
+    stats();
+  }
+  workers--; if(workers<=0){running=false;log('Done');}
+}
+
+$('start').onclick=()=>{
+  list=parseCombos($('combos').value); if(!list.length){log('No valid combos','WARN'); return;}
+  running=true;current=0;checked=0;hits=0;stats();
+  const t=Math.max(1,Math.min(50,parseInt($('threads').value||'10',10))); workers=0;
+  log(`Starting ${list.length} combos with ${t} threads`);
+  for(let i=0;i<t;i++){workers++;worker();}
+};
+$('stop').onclick=()=>{running=false;log('Stopping...','WARN')};
+$('clear').onclick=()=>{$('combos').value='';$('hits').innerHTML='';$('log').innerHTML='';log('Cleared');};
+$('paste').onclick=async()=>{try{$('combos').value=await navigator.clipboard.readText();log('Pasted combos')}catch{log('Clipboard denied','WARN')}};
+stats();
+</script>
+</body>
+</html>
